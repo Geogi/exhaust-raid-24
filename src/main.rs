@@ -1,3 +1,5 @@
+use ffxiv_rrc::calc;
+
 const DEFAULT_ROLL: i32 = 90;
 const DEFAULT_PLAYERS: i32 = 8;
 
@@ -54,34 +56,9 @@ fn main() {
             println!("24-man raid: {:.2}%", 100.0 * calc(24, roll));
         }
     } else {
-        table_mode()
-    }
-}
-
-fn table_mode() {
-    for roll in 1..=99 {
-        let row: Vec<String> = (1..=24).map(|ps| format!("{}", calc(ps, roll))).collect();
-        println!("{}", row.join(";"))
-    }
-}
-
-fn calc(players: i32, roll: i32) -> f64 {
-    let losing: f64 = (roll - 1).into();
-    let adverse = players - 1;
-
-    1.0 / 99.0_f64.powi(adverse)
-        * (losing.powi(adverse)
-            + (1..=adverse).fold(0.0, |acc, n| {
-                acc + losing.powi(adverse - n) / f64::from(n + 1)
-            }))
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[bench]
-    fn bench_table_mode() {
-        table_mode()
+        for roll in 1..=99 {
+            let row: Vec<String> = (1..=24).map(|ps| format!("{}", calc(ps, roll))).collect();
+            println!("{}", row.join(";"))
+        }
     }
 }
