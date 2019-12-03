@@ -1,31 +1,73 @@
+const DEFAULT_ROLL: i32 = 90;
+const DEFAULT_PLAYERS: i32 = 8;
+
 fn main() {
-    for participants in 1..=24 {
-        let adversaries = participants - 1;
-        for roll in 1..=99 {
-            let all_below_chance = all_below(adversaries, roll);
-            let winning_tie_chance = winning_tie(adversaries, roll);
-            let overall_chance = all_below_chance + winning_tie_chance;
-            print!("{};", overall_chance);
+    let matches = clap::App::new("ffxiv-rrc")
+        .arg(clap::Arg::with_name("ROLL"))
+        .arg(clap::Arg::with_name("PLAYERS"))
+        .get_matches();
+    if let Some(roll) = matches.value_of("ROLL") {
+        let roll: i32 = roll
+            .parse()
+            .map(|r: i32| {
+                if r >= 1 && r <= 99 {
+                    r
+                } else {
+                    eprintln!(
+                        "ROLL arg out of bounds, assuming default of {}",
+                        DEFAULT_ROLL
+                    );
+                    DEFAULT_ROLL
+                }
+            })
+            .unwrap_or_else(|_| {
+                eprintln!(
+                    "Cannot parse ROLL arg, assuming default of {}.",
+                    DEFAULT_ROLL
+                );
+                DEFAULT_ROLL
+            });
+        if let Some(players) = matches.value_of("PLAYERS") {
+            let players: i32 = players
+                .parse()
+                .map(|p: i32| {
+                    if p > 0 {
+                        p
+                    } else {
+                        eprintln!(
+                            "PLAYERS arg cannot be zero, assuming default of {}",
+                            DEFAULT_PLAYERS
+                        );
+                        DEFAULT_PLAYERS
+                    }
+                })
+                .unwrap_or_else(|_| {
+                    eprintln!(
+                        "Cannot parse PLAYERS arg, assuming default of {}.",
+                        DEFAULT_PLAYERS
+                    );
+                    DEFAULT_PLAYERS
+                });
+            println!("{}", calc(players, roll));
+        } else {
+            println!("8-man raid: {:.2}%", 100.0 * calc(8, roll));
+            println!("24-man raid: {:.2}%", 100.0 * calc(24, roll));
         }
-        println!()
+    } else {
+        for roll in 1..=99 {
+            let row: Vec<String> = (1..=24).map(|ps| format!("{}", calc(ps, roll))).collect();
+            println!("{}", row.join(";"))
+        }
     }
-
 }
 
-fn winning_tie(adversaries: i32, roll: i32) -> f64 {
-    let mut chance = 0.0;
-    for people_tied_with_me in 1..=adversaries {
-        let chance_of_tie = f64::powi(1.0 / 99.0, people_tied_with_me)
-            * all_below(adversaries - people_tied_with_me, roll);
-        let chance_of_winning = 1.0 / f64::from(people_tied_with_me + 1);
-        chance += chance_of_tie * chance_of_winning;
-    }
-    chance
-}
+fn calc(players: i32, roll: i32) -> f64 {
+    let losing: f64 = (roll - 1).into();
+    let adverse = players - 1;
 
-fn all_below(adversaries: i32, roll: i32) -> f64 {
-    let target = f64::from(roll - 1);
-    let one_below = target / 99.0;
-    let all_below = f64::powi(one_below, adversaries);
-    all_below
+    1.0 / 99.0_f64.powi(adverse)
+        * (losing.powi(adverse)
+            + (1..=adverse).fold(0.0, |acc, n| {
+                acc + losing.powi(adverse - n) / f64::from(n + 1)
+            }))
 }
